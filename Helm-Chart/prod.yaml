@@ -1,0 +1,157 @@
+---
+# Source: payment-service/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prod-payment-service
+  labels:
+    helm.sh/chart: payment-service-0.1.0
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/instance: prod
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+---
+# Source: payment-service/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+
+metadata:
+  name: prod-payment-service-secret
+
+type: Opaque
+
+stringData:
+  DB_PASSWORD: "mypassword"
+---
+# Source: payment-service/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: prod-payment-service-config
+
+data:
+  APP_ENV: "production"
+---
+# Source: payment-service/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: prod-payment-service
+  labels:
+    helm.sh/chart: payment-service-0.1.0
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/instance: prod
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/instance: prod
+---
+# Source: payment-service/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prod-payment-service
+  labels:
+    helm.sh/chart: payment-service-0.1.0
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/instance: prod
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment-service
+      app.kubernetes.io/instance: prod
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: payment-service-0.1.0
+        app.kubernetes.io/name: payment-service
+        app.kubernetes.io/instance: prod
+        app.kubernetes.io/version: "1.16.0"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: prod-payment-service
+      containers:
+        - name: payment-service
+          image: "nginx:1.16.0"
+          envFrom:
+            - configMapRef:
+                name: prod-payment-service-config
+
+            - secretRef:
+                name: prod-payment-service-secret
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+---
+# Source: payment-service/templates/hpa.yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: prod-payment-service
+  labels:
+    helm.sh/chart: payment-service-0.1.0
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/instance: prod
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: prod-payment-service
+  minReplicas: 5
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+# Source: payment-service/templates/tests/test-connection.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "prod-payment-service-test-connection"
+  labels:
+    helm.sh/chart: payment-service-0.1.0
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/instance: prod
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['prod-payment-service:80']
+  restartPolicy: Never

@@ -1,0 +1,132 @@
+---
+# Source: payment-service/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: qa-payment-service
+  labels:
+    helm.sh/chart: payment-service-0.1.0
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/instance: qa
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+---
+# Source: payment-service/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+
+metadata:
+  name: qa-payment-service-secret
+
+type: Opaque
+
+stringData:
+  DB_PASSWORD: "mypassword"
+---
+# Source: payment-service/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: qa-payment-service-config
+
+data:
+  APP_ENV: "production"
+---
+# Source: payment-service/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: qa-payment-service
+  labels:
+    helm.sh/chart: payment-service-0.1.0
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/instance: qa
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/instance: qa
+---
+# Source: payment-service/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qa-payment-service
+  labels:
+    helm.sh/chart: payment-service-0.1.0
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/instance: qa
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: payment-service
+      app.kubernetes.io/instance: qa
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: payment-service-0.1.0
+        app.kubernetes.io/name: payment-service
+        app.kubernetes.io/instance: qa
+        app.kubernetes.io/version: "1.16.0"
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: qa-payment-service
+      containers:
+        - name: payment-service
+          image: "nginx:1.16.0"
+          envFrom:
+            - configMapRef:
+                name: qa-payment-service-config
+
+            - secretRef:
+                name: qa-payment-service-secret
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+---
+# Source: payment-service/templates/tests/test-connection.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "qa-payment-service-test-connection"
+  labels:
+    helm.sh/chart: payment-service-0.1.0
+    app.kubernetes.io/name: payment-service
+    app.kubernetes.io/instance: qa
+    app.kubernetes.io/version: "1.16.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args: ['qa-payment-service:80']
+  restartPolicy: Never
