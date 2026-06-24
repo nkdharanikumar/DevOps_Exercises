@@ -1,92 +1,91 @@
 name: CI-CD-Pipeline
 
 on:
-  push:
-    branches:
-      - main
+push:
+branches:
+- main
 
 env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REPOSITORY: flask-cicd
-  ECR_REGISTRY: 324621154851.dkr.ecr.ap-south-1.amazonaws.com
+AWS_REGION: ${{ secrets.AWS_REGION }}
+ECR_REPOSITORY: your-ecr-repository
+ECR_REGISTRY: <AWS_ACCOUNT_ID>.dkr.ecr.<AWS_REGION>.amazonaws.com
 
 jobs:
-  test-build-scan-push-gitops:
-    runs-on: ubuntu-latest
+test-build-scan-push-gitops:
+runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+```
+steps:
+  - name: Checkout Code
+    uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+  - name: Setup Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: "3.11"
 
-      - name: Install Dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install pytest
+  - name: Install Dependencies
+    run: |
+      pip install -r requirements.txt
+      pip install pytest
 
-      - name: Run Unit Tests
-        run: |
-          pytest -v
+  - name: Run Unit Tests
+    run: |
+      pytest -v
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+  - name: Configure AWS Credentials
+    uses: aws-actions/configure-aws-credentials@v4
+    with:
+      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
+  - name: Login to Amazon ECR
+    uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build Docker Image
-        run: |
-          docker build -t flask-cicd:${{ github.sha }} .
+  - name: Build Docker Image
+    run: |
+      docker build -t app-image:${{ github.sha }} .
 
-      - name: Run Trivy Vulnerability Scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: flask-cicd:${{ github.sha }}
-          format: table
-          severity: CRITICAL
-          exit-code: '0'
+  - name: Run Trivy Vulnerability Scanner
+    uses: aquasecurity/trivy-action@master
+    with:
+      image-ref: app-image:${{ github.sha }}
+      format: table
+      severity: CRITICAL
+      exit-code: '0'
 
-      - name: Tag Docker Image
-        run: |
-          docker tag flask-cicd:${{ github.sha }} \
-          $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+  - name: Tag Docker Image
+    run: |
+      docker tag app-image:${{ github.sha }} \
+      $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
 
-      - name: Push Docker Image
-        run: |
-          docker push \
-          $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+  - name: Push Docker Image
+    run: |
+      docker push \
+      $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
 
-      - name: Clone GitOps Repository
-        run: |
-          git clone https://x-access-token:${{ secrets.GITOPS_TOKEN }}@github.com/nkdharanikumar/gitops-repo.git
+  - name: Clone GitOps Repository
+    run: |
+      git clone https://x-access-token:${{ secrets.GITOPS_TOKEN }}@github.com/<GITHUB_USERNAME>/<GITOPS_REPO>.git
 
-      - name: Update Deployment Manifest
-        run: |
-          sed -i "s|image:.*|image: $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}|g" \
-          gitops-repo/k8s/deployment.yaml
+  - name: Update Deployment Manifest
+    run: |
+      sed -i "s|image:.*|image: $ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}|g" \
+      <GITOPS_REPO>/k8s/deployment.yaml
 
-      - name: Commit and Push Changes
-        run: |
-          cd gitops-repo
+  - name: Commit and Push Changes
+    run: |
+      cd <GITOPS_REPO>
 
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
+      git config user.name "github-actions"
+      git config user.email "github-actions@github.com"
 
-          git add .
+      git add .
 
-          git commit -m "Update image tag to ${{ github.sha }}" || echo "No changes"
+      git commit -m "Update image tag to ${{ github.sha }}" || echo "No changes"
 
-          git remote set-url origin https://x-access-token:${{ secrets.GITOPS_TOKEN }}@github.com/nkdharanikumar/gitops-repo.git
+      git remote set-url origin https://x-access-token:${{ secrets.GITOPS_TOKEN }}@github.com/<GITHUB_USERNAME>/<GITOPS_REPO>.git
 
-          
-          
-
-          git push origin main
+      git push origin main
+```
