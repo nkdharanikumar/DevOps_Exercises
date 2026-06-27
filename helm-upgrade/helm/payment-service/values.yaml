@@ -1,0 +1,13 @@
+replicaCount: 2
+
+image:
+  repository: nginx
+  pullPolicy: IfNotPresent
+  tag: "1.27"
+
+service:
+  type: ClusterIP
+  port: 80
+
+labels:
+  app: payment-v2
