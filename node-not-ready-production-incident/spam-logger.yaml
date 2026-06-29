@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spam-logger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spam-logger
+  template:
+    metadata:
+      labels:
+        app: spam-logger
+    spec:
+      containers:
+      - name: logger
+        image: busybox
+        command:
+        - sh
+        - -c
+        - |
+          while true; do
+            head -c 1048576 /dev/zero | tr '\0' 'A'
+            echo
+          done
