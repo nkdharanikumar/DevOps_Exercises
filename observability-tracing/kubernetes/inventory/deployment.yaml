@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-service
+  namespace: observability-app
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: inventory-service
+
+  template:
+    metadata:
+      labels:
+        app: inventory-service
+
+    spec:
+      containers:
+      - name: inventory-service
+        image: inventory-service:v2
+        imagePullPolicy: Never
+
+        ports:
+        - containerPort: 5001
+
+        env:
+        - name: PAYMENT_URL
+          value: "http://payment-service:5002/payment"
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5001
+          initialDelaySeconds: 10
+          periodSeconds: 10

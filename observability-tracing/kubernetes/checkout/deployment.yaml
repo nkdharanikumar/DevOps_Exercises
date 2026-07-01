@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: checkout-service
+  namespace: observability-app
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: checkout-service
+
+  template:
+    metadata:
+      labels:
+        app: checkout-service
+
+    spec:
+      containers:
+      - name: checkout-service
+
+        image: checkout-service:v1
+
+        imagePullPolicy: IfNotPresent
+
+        ports:
+        - containerPort: 5000
+
+        env:
+        - name: INVENTORY_URL
+          value: "http://inventory-service:5001/inventory"
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 10
