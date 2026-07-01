@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: production
+data:
+  default.conf: |
+    server {
+      listen 80;
+
+      location / {
+        root /usr/share/nginx/html;
+        index index.html;
+      }
+
+      location /api {
+        return 200 "API Service\n";
+      }
+
+      location /admin {
+        return 200 "Admin Service\n";
+      }
+
+      location /dashboard {
+        return 200 "Dashboard Service\n";
+      }
+    }
